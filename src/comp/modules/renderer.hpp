@@ -337,16 +337,11 @@ namespace comp
 
 			//std::string_view shader_name;
 			IDirect3DDevice9* device_ptr = nullptr;
-			
-			D3DXMATRIX* world_transform = nullptr;
-			bool is_world_hal = false;
 
 			void reset()
 			{
 				//shader_name = "";
 				device_ptr = nullptr;
-				world_transform = nullptr;
-				is_world_hal = false;
 			}
 		};
 

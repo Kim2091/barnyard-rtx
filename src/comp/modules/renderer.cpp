@@ -20,11 +20,13 @@ namespace comp
 	};
 
 	bool g_is_worldhal_shader = false;
+	bool g_is_skinhal_shader = false;
 	D3DXMATRIX* g_currWorldViewMtx = nullptr;
 
 	void reset_render_globals()
 	{
 		g_is_worldhal_shader = false;
+		g_is_skinhal_shader = false;
 		g_currWorldViewMtx = nullptr;
 	}
 
@@ -65,10 +67,6 @@ namespace comp
 		ctx.info.device_ptr = dev;
 
 		// any additional info about the current drawcall here
-
-		ctx.info.world_transform = g_currWorldViewMtx;
-		ctx.info.is_world_hal = g_is_worldhal_shader;
-
 		return ctx;
 	}
 
@@ -186,13 +184,28 @@ namespace comp
 				render_with_ff = true;
 			}*/
 
+			// Fallback handles all of that already so this doesn't make much sense .. still keeping it for now
+			if (g_is_skinhal_shader)
+			{
+				//ctx.save_fvf(dev); // fitting FVF so no need to save/modify
+
+				if (g_currWorldViewMtx) // make sure that we have a valid world transform
+				{
+					ctx.save_world_transform(dev);
+					dev->SetTransform(D3DTS_WORLD, g_currWorldViewMtx);
+				}
+
+				// Disable VS to render via FF
+				render_with_ff = true;
+			}
+
 			// WorldShaderHAL
 			if (g_is_worldhal_shader)
 			{
-				if (ctx.info.world_transform) // make sure that we have a valid world transform
+				if (g_currWorldViewMtx) // make sure that we have a valid world transform
 				{
 					ctx.save_world_transform(dev);
-					dev->SetTransform(D3DTS_WORLD, ctx.info.world_transform);
+					dev->SetTransform(D3DTS_WORLD, g_currWorldViewMtx);
 
 					// Set hacky FVF, game does not set a supported FVF in low shader mode and uses a Vec3 for vertex color
 					// -> Use two texcoords (3 float + 2 floats) and make FF use TC index 1 for UV's
@@ -317,7 +330,7 @@ namespace comp
 
 	// ---
 
-	void pre_render_world_hk(render_packet* p)
+	void on_worldshaderhal_render_hk(render_packet* p)
 	{
 		if (p) 
 		{
@@ -326,32 +339,54 @@ namespace comp
 		}
 	}
 
-	__declspec (naked) void pre_render_something_stub()
+	__declspec (naked) void on_worldshaderhal_render_stub()
 	{
 		static uint32_t retn_addr = 0x5F6D3B;
 		__asm
 		{
 			pushad;
 			push	ebx; // render packet
-			call	pre_render_world_hk;
+			call	on_worldshaderhal_render_hk;
 			add		esp, 4;
 			popad;
 
-			fnstsw  ax;
-			test    ah, 5;
+			fnstsw  ax;		// og
+			test    ah, 5;	// og
 			jmp		retn_addr;
 		}
 	}
 
-	// assembly stub at the end of the same function to reset the global var
-/*	__declspec (naked) void post_render__something_stub()
+	// ---
+
+	void on_skinshaderhal_render_hk(render_packet* p)
 	{
+		if (p)
+		{
+			g_is_skinhal_shader = true;
+			g_currWorldViewMtx = &p->m_oModelView;
+		}
+	}
+
+	__declspec (naked) void on_skinshaderhal_render_stub()
+	{
+		static uint32_t retn_addr = 0x5F483F;
 		__asm
 		{
-			mov		g_is_rendering_something, 0;
-			retn    0x10;	// eg: this hook was placed on the return instruction, replicate it here
+			mov     eax, [edi]; // og
+			mov		[esp + 0x38], edi; // og
+
+			push	ecx; // save
+			mov     ecx, [esp + 0x1A8 + 4]; // packet
+			pushad;
+			push	ecx; // render packet
+			call	on_skinshaderhal_render_hk;
+			add		esp, 4;
+			popad;
+			pop		ecx; // restore
+
+			jmp		retn_addr;
 		}
-	}*/
+	}
 
 	// ---
 
@@ -359,42 +394,17 @@ namespace comp
 	{
 		p_this = this;
 
-		// #Step 5: Create hooks as required
-
-		// Eg: detect rendering of some special kind of mesh because the function we hook is issuing a bunch of drawcalls for a certain type of mesh we want modify
-		// START OF FUNC: set global helper bool
-		// - Every drawcall from here on will be our special type of mesh
-		// END OF FUNC: reset global helper bool
-
-		// - retn_addr__pre_draw_something contains the offset we want to return to after our assembly stub, which is mostly the instruction after our hook.
-		//   If the instruction at the hook spot is exactly 5 bytes, we can place the hook there and use the return addr minus 5 bytes to retrive the addr of the hook.
-
-		// - hk_addr__post_draw_something contains the direct addr that we want to place the hook at
-		//   This example will place a stub on the retn instruction which has additional padding bytes until the next function starts (so more than 5 bytes of space).
-		//   That way we do not need an addr to return to and can just replicate the retn instruction in the stub
-
-			//shared::utils::hook(game::retn_addr__pre_draw_something - 5u, pre_render_something_stub, HOOK_JUMP).install()->quick();
-			//shared::utils::hook(game::hk_addr__post_draw_something, post_render__something_stub, HOOK_JUMP).install()->quick();
-
-
-		// Eg: if you only want to modify things based on commandline flags
-			//if (shared::common::flags::has_flag("your_flag"))
-			//{
-			//	// any hooks or mem edits here, eg:
-			//
-			//	// if you want to place a hook but cant find easy 5 bytes of space, you can nop eg. 7 bytes first, then place the hook
-			//	// make sure to replicate the overwritten instructions in your stub if you do so
-			//		//shared::utils::hook::nop(game::nop_addr__func2, 7); // nop 7 bytes at addr
-			//		//shared::utils::hook(game::nop_addr__func2, your_stub, HOOK_JUMP).install()->quick(); // we can now safely place a hook here without messing up following instructions
-			//}
-
-		shared::utils::hook(0x5F6D36, pre_render_something_stub, HOOK_JUMP).install()->quick();
-
 		// WorldShaderHAL low end mode
+		shared::utils::hook(0x5F6D36, on_worldshaderhal_render_stub, HOOK_JUMP).install()->quick(); // AWorldShaderHAL::Render
 		shared::utils::hook::set<BYTE>(0x5F7720 + 6, 0x0); // AWorldShaderHAL::AWorldShaderHAL :: set low end mode by default
 		shared::utils::hook::nop(0x5F6022, 6); // AWorldShaderHAL::SetHighEndMode :: prevent resetting
 		shared::utils::hook::nop(0x5F6CC0, 6); // AWorldShaderHAL::Render :: render in low end mode 
 
+
+		// Skinning
+		shared::utils::hook(0x5F4839, on_skinshaderhal_render_stub, HOOK_JUMP).install()->quick(); // ASkinShaderHAL::Render
+		shared::utils::hook::set<BYTE>(0x5F473F + 6, 0x0); // ASkinShaderHAL::ASkinShaderHAL :: set low end mode by default
+		shared::utils::hook::nop(0x5F1802, 6); // ASkinShaderHAL::EnableHighEndSkinning :: prevent resetting
 
 		// -----
 		m_initialized = true;

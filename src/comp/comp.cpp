@@ -64,10 +64,11 @@ namespace comp
 			shared::globals::d3d_device->SetTransform(D3DTS_PROJECTION, &proj_matrix);
 		}
 
-
 		// Actual camera setup here if matrices are available
+		else 
 		{
 			shared::globals::d3d_device->SetTransform(D3DTS_WORLD, &shared::globals::IDENTITY); // does not hurt
+			shared::globals::d3d_device->SetTransform(D3DTS_VIEW, &shared::globals::IDENTITY); // always identity
 
 			// Example code if you managed to find some kind of matrix struct
 				//if (const auto viewport = game::vp; viewport)
