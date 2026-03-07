@@ -6,7 +6,9 @@ namespace comp
 
 	extern bool g_rendered_first_primitive;
 	extern bool g_applied_hud_hack;
-	extern bool g_applied_phone_hack;
+
+	extern D3DXMATRIX g_current_camera_mtx;
+	extern Vector g_current_camera_origin;
 
 	namespace tex_addons
 	{

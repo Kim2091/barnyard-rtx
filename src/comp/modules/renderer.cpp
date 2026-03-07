@@ -7,7 +7,8 @@ namespace comp
 {
 	int g_is_rendering_something = 0;
 	bool g_rendered_first_primitive = false;
-	bool g_applied_hud_hack = false; // was hud "injection" applied this frame
+	D3DXMATRIX g_current_camera_mtx = {};
+	Vector g_current_camera_origin = {};
 
 	struct render_packet
 	{
@@ -454,6 +455,7 @@ namespace comp
 	{
 		p_this = this;
 
+#if 1
 		// WorldShaderHAL low end mode
 		shared::utils::hook(0x5F6D36, on_worldshaderhal_render_stub, HOOK_JUMP).install()->quick(); // AWorldShaderHAL::Render
 		shared::utils::hook::set<BYTE>(0x5F7720 + 6, 0x0); // AWorldShaderHAL::AWorldShaderHAL :: set low end mode by default
@@ -467,6 +469,7 @@ namespace comp
 
 		// GrassShaderHAL
 		shared::utils::hook(0x5F834A, on_grassshaderhal_render_stub, HOOK_JUMP).install()->quick(); // AGrassShaderHAL::Render
+#endif
 
 		// -----
 		m_initialized = true;

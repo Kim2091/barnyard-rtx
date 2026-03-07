@@ -2,6 +2,7 @@
 #include <psapi.h>
 
 #include "comp.hpp"
+#include "modules/comp_settings.hpp"
 #include "shared/common/flags.hpp"
 #include "modules/d3d9ex.hpp"
 
@@ -98,6 +99,9 @@ BOOL APIENTRY DllMain(HMODULE hmodule, const DWORD ul_reason_for_call, LPVOID)
 
 		// Register d3d9 module to create a d3d9 proxy interface
 		shared::common::loader::module_loader::register_module(std::make_unique<comp::d3d9ex>());
+
+		// Register comp mod settings module
+		shared::common::loader::module_loader::register_module(std::make_unique<comp::comp_settings>());
 
 		// Find game window thread
 		if (const auto t = CreateThread(nullptr, 0, comp::find_game_window, nullptr, 0, nullptr); t) {

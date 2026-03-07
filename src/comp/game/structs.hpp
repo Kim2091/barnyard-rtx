@@ -9,4 +9,16 @@ namespace comp::game
 		D3DXMATRIX view;
 		D3DXMATRIX proj;
 	};
+
+	struct tsphere
+	{
+		Vector m_Origin;
+		float m_fRadius;
+	};
+
+	struct tplane
+	{
+		Vector m_Normal;
+		float m_fDistance;
+	};
 }
