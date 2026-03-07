@@ -126,9 +126,6 @@ namespace comp
 				std::uint32_t m_num_successful{ 0 };
 			};
 
-			StatObj _water_shader_name_checks = { StatObj::Mode::ConditionalCheck };
-			StatObj _gta_rmptfx_litsprite_shader_name_checks = { StatObj::Mode::ConditionalCheck };
-
 			StatObj _drawcall_prim = { StatObj::Mode::Single };
 			StatObj _drawcall_prim_incl_ignored = { StatObj::Mode::Single };
 			StatObj _drawcall_using_vs = { StatObj::Mode::Single };
@@ -141,10 +138,6 @@ namespace comp
 
 			ImGuiStats()
 			{
-				m_stat_list.emplace_back("Water Shader Name Checks", &_water_shader_name_checks);
-				m_stat_list.emplace_back("RMPTFX Litsprite Shader Name Checks", &_gta_rmptfx_litsprite_shader_name_checks);
-
-				m_stat_list.emplace_back();
 				m_stat_list.emplace_back("DrawPrim Calls", &_drawcall_prim);
 				m_stat_list.emplace_back("DrawPrim +Ignored", &_drawcall_prim_incl_ignored);
 				m_stat_list.emplace_back("DrawPrim VS", &_drawcall_using_vs);
@@ -188,6 +181,7 @@ namespace comp
 	private:
 		void tab_about();
 		void tab_dev();
+		void tab_compsettings();
 		
 		bool m_im_window_focused = false;
 		bool m_im_window_hovered = false;

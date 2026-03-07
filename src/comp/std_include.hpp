@@ -43,6 +43,7 @@ constexpr auto COMP_MOD_VERSION_PATCH = 1;
 #define XASSERT(x) if (x) MessageBoxA(HWND_DESKTOP, #x, "FATAL ERROR", MB_ICONERROR)
 
 #include "MinHook.h"
+#include "toml.hpp"
 #include "bridge_remix_api.h"
 
 #pragma warning(push)

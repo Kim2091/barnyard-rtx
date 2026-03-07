@@ -1,6 +1,7 @@
 #include "std_include.hpp"
 #include "imgui.hpp"
 
+#include "comp_settings.hpp"
 #include "imgui_internal.h"
 #include "renderer.hpp"
 #include "shared/common/imgui_helper.hpp"
@@ -13,7 +14,11 @@ extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
 	ImGui::TextURL((text), (link), true);
 
 #define SPACEY16 ImGui::Spacing(0.0f, 16.0f);
+#define SPACEY12 ImGui::Spacing(0.0f, 12.0f);
 #define SPACEY8 ImGui::Spacing(0.0f, 8.0f);
+#define SPACEY4 ImGui::Spacing(0.0f, 4.0f);
+
+#define TT(TXT) ImGui::SetItemTooltipWrapper((TXT));
 
 namespace comp
 {
@@ -77,7 +82,7 @@ namespace comp
 
 		ImGui::Spacing(0.0f, 20.0f);
 
-		ImGui::CenterText("RTX REMIX COMPATIBILITY BASE");
+		ImGui::CenterText("BARNYARD RTX-REMIX COMPATIBILITY MOD");
 		ImGui::CenterText("                      by #xoxor4d");
 
 		ImGui::Spacing(0.0f, 24.0f);
@@ -94,7 +99,7 @@ namespace comp
 #endif
 
 		SPACEY16;
-		CENTER_URL("GitHub Repository", "https://github.com/xoxor4d/remix-comp-base");
+		CENTER_URL("GitHub Repository", "https://github.com/xoxor4d/barnyard-rtx");
 
 		SPACEY16;
 		ImGui::Separator();
@@ -108,7 +113,9 @@ namespace comp
 		CENTER_URL("NVIDIA - RTX Remix", "https://github.com/NVIDIAGameWorks/rtx-remix");
 		CENTER_URL("Dear Imgui", "https://github.com/ocornut/imgui");
 		CENTER_URL("Minhook", "https://github.com/TsudaKageyu/minhook");
+		CENTER_URL("Toml11", "https://github.com/ToruNiina/toml11");
 		CENTER_URL("Ultimate-ASI-Loader", "https://github.com/ThirteenAG/Ultimate-ASI-Loader");
+		CENTER_URL("OpenBarnyard - InfiniteC0re", "https://github.com/InfiniteC0re/OpenBarnyard");
 
 		ImGui::Spacing(0.0f, 24.0f);
 		ImGui::CenterText("And of course, all my fellow Ko-Fi and Patreon supporters");
@@ -154,6 +161,65 @@ namespace comp
 		default:
 			throw std::runtime_error("Uncovered Mode in StatObj");
 		}
+	}
+
+	void compsettings_var_reset_logic(comp_settings::variable& var)
+	{
+		std::string popup_id = "Reset "s + var.m_name + " ?";
+
+		if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenBlockedByPopup) && ImGui::IsMouseDown(ImGuiMouseButton_Middle))
+		{
+			if (!ImGui::IsPopupOpen(popup_id.c_str())) {
+				ImGui::OpenPopup(popup_id.c_str());
+			}
+		}
+
+		ImGui::SetNextWindowSize(ImVec2(300.0f, 140.0f));
+		if (ImGui::BeginPopupModal(popup_id.c_str(), nullptr, ImGuiWindowFlags_NoSavedSettings))
+		{
+			ImGui::Spacing(0.0f, 0.0f);
+
+			ImGui::Spacing();
+			ImGui::CenterText("This will reset the current variable");
+
+			ImGui::CenterText("Are you sure?");
+
+			ImGui::Spacing(0, 8);
+			ImGui::Spacing(0, 0); ImGui::SameLine();
+
+			const auto half_width = ImGui::GetContentRegionMax().x * 0.5f;
+			ImVec2 button_size(half_width - (ImGui::GetStyle().WindowPadding.x * 2.0f) - ImGui::GetStyle().ItemSpacing.x, 0.0f);
+			if (ImGui::Button("Yes", button_size))
+			{
+				var.reset();
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::SameLine();
+			if (ImGui::Button("Cancel", button_size)) {
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
+		}
+	}
+
+	bool compsettings_bool_widget(const char* desc, comp_settings::variable& var)
+	{
+		const auto cs_var_ptr = var.get_as<bool*>();
+		const bool result = ImGui::Checkbox(desc, cs_var_ptr);
+		TT(var.get_tooltip_string().c_str());
+		compsettings_var_reset_logic(var);
+		return result;
+	}
+
+	bool compsettings_float_widget(const char* desc, comp_settings::variable& var, const float& min = 0.0f, const float& max = 0.0f, const float& speed = 0.02f)
+	{
+		const auto cs_var_ptr = var.get_as<float*>();
+		const bool result = ImGui::DragFloat(desc, cs_var_ptr, speed, min, max, "%.2f", (min != 0.0f || max != 0.0f) ? ImGuiSliderFlags_AlwaysClamp : ImGuiSliderFlags_None);
+		TT(var.get_tooltip_string().c_str());
+		compsettings_var_reset_logic(var);
+		return result;
 	}
 
 	void dev_debug_container()
@@ -225,12 +291,108 @@ namespace comp
 		dev_debug_container();
 	}
 
+	void cont_compsettings_quick_cmd()
+	{
+		if (ImGui::Button("Save Current Settings", ImVec2(ImGui::GetContentRegionAvail().x * 0.5f, 0))) {
+			comp_settings::write_toml();
+		}
+
+		ImGui::SameLine();
+		if (ImGui::Button("Reload CompSettings", ImVec2(ImGui::GetContentRegionAvail().x, 0)))
+		{
+			if (!ImGui::IsPopupOpen("Reload CompSettings?")) {
+				ImGui::OpenPopup("Reload CompSettings?");
+			}
+		}
+
+		SPACEY4;
+		ImGui::CenterText("Use Middle Mouse Button to Reset Variables.");
+		SPACEY4;
+
+		// popup
+		if (ImGui::BeginPopupModal("Reload CompSettings?", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
+		{
+			ImGui::Spacing(0.0f, 0.0f);
+
+			const auto half_width = ImGui::GetContentRegionMax().x * 0.5f;
+			auto line1_str = "You'll loose all unsaved changes if you continue!   ";
+			auto line2_str = "To save your changes, use:";
+			auto line3_str = "Save Current Settings";
+
+			ImGui::Spacing();
+			ImGui::SetCursorPosX(5.0f + half_width - (ImGui::CalcTextSize(line1_str).x * 0.5f));
+			ImGui::TextUnformatted(line1_str);
+
+			ImGui::Spacing();
+			ImGui::SetCursorPosX(5.0f + half_width - (ImGui::CalcTextSize(line2_str).x * 0.5f));
+			ImGui::TextUnformatted(line2_str);
+
+			ImGui::SetCursorPosX(5.0f + half_width - (ImGui::CalcTextSize(line3_str).x * 0.5f));
+			ImGui::TextUnformatted(line3_str);
+
+			ImGui::Spacing(0, 8);
+			ImGui::Spacing(0, 0); ImGui::SameLine();
+
+			ImVec2 button_size(half_width - 6.0f - ImGui::GetStyle().WindowPadding.x, 0.0f);
+			if (ImGui::Button("Reload", button_size))
+			{
+				comp_settings::parse_toml();
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::SameLine(0, 6.0f);
+			if (ImGui::Button("Cancel", button_size)) {
+				ImGui::CloseCurrentPopup();
+			}
+
+			ImGui::EndPopup();
+		}
+	}
+
+	void imgui::tab_compsettings()
+	{
+		auto cs = comp_settings::get();
+
+		// quick commands
+		cont_compsettings_quick_cmd();
+		SPACEY12;
+
+		auto save_logo = []()
+			{
+				ImGui::SameLine(0, 3.0f); ImGui::TextDisabled("  *  ");
+
+				ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.124f, 0.124f, 0.124f, 0.776f));
+				if (!ImGui::BeginItemTooltip())
+				{
+					ImGui::PopStyleColor();
+					return;
+				}
+				ImGui::PopStyleColor();
+
+				const auto padding = 4.0f;
+
+				ImGui::Spacing(0, padding);	// top padding
+				ImGui::Spacing(padding, 0); ImGui::SameLine(); // left padding
+
+				ImGui::TextUnformatted("This is a saved Setting.");
+
+				ImGui::SameLine(); ImGui::Spacing(padding, 0); // right padding
+				ImGui::Spacing(0, padding);	// bottom padding
+
+				ImGui::EndTooltip();
+			};
+
+		const float widget_width = ImGui::GetContentRegionAvail().x * 0.3f;
+		ImGui::SetNextItemWidth(widget_width); compsettings_float_widget("Object NoCull Distance", cs->object_nucull_distance, 0.0f, 500.0f, 0.01f); save_logo();
+		ImGui::SetNextItemWidth(widget_width); compsettings_float_widget("World NoCull Distance", cs->world_nucull_distance, 0.0f, 500.0f, 0.01f); save_logo();
+	}
+
 	// -----------
 
 	void imgui::devgui()
 	{
 		ImGui::SetNextWindowSize(ImVec2(900, 800), ImGuiCond_FirstUseEver);
-		if (!ImGui::Begin("Remix Compatibility-Base Settings", &shared::globals::imgui_menu_open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollWithMouse))
+		if (!ImGui::Begin("Barnyard Remix Compatibility-Mod Settings", &shared::globals::imgui_menu_open, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollWithMouse))
 		{
 			ImGui::End();
 			return;
@@ -278,6 +440,7 @@ namespace comp
 		{
 			ImGui::PopStyleColor();
 			ImGui::PopStyleVar(1);
+			ADD_TAB("CompSettings", tab_compsettings);
 			ADD_TAB("Dev", tab_dev);
 			ADD_TAB("About", tab_about);
 			ImGui::EndTabBar();

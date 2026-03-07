@@ -83,9 +83,9 @@ BOOL APIENTRY DllMain(HMODULE hmodule, const DWORD ul_reason_for_call, LPVOID)
 		shared::globals::setup_homepath();
 
 		shared::common::set_console_color_blue(true);
-		std::cout << "Launching RTX Remix Compatiblity Base Version [" << COMP_MOD_VERSION_MAJOR << "." << COMP_MOD_VERSION_MINOR << "." << COMP_MOD_VERSION_PATCH << "]\n";
+		std::cout << "Launching Barnyard RTX-Remix Compatiblity Mod Version [" << COMP_MOD_VERSION_MAJOR << "." << COMP_MOD_VERSION_MINOR << "." << COMP_MOD_VERSION_PATCH << "]\n";
 		std::cout << "> Compiled On : " + std::string(__DATE__) + " " + std::string(__TIME__) + "\n";
-		std::cout << "> https://github.com/xoxor4d/remix-comp-base\n\n";
+		std::cout << "> https://github.com/xoxor4d/barnyard-rtx\n\n";
 		shared::common::set_console_color_default();
 
 		if (const auto MH_INIT_STATUS = MH_Initialize(); MH_INIT_STATUS != MH_STATUS::MH_OK)

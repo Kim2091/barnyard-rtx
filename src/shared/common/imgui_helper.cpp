@@ -10,6 +10,39 @@ namespace ImGui
 		Dummy(ImVec2(x, y));
 	}
 
+	void SetItemTooltipWrapper(const char* fmt, ...)
+	{
+		va_list args;
+		va_start(args, fmt);
+
+		if (IsItemHovered(ImGuiHoveredFlags_ForTooltip))
+		{
+			// (0.124f, 0.124f, 0.124f, 0.776f)
+			PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.124f, 0.124f, 0.124f, 0.776f));
+
+			if (!BeginTooltipEx(ImGuiTooltipFlags_OverridePrevious, ImGuiWindowFlags_None))
+			{
+				PopStyleColor();
+				return;
+			}
+			PopStyleColor();
+
+			const auto padding = 4.0f;
+
+			Spacing(0, padding);			 // top padding
+			Spacing(padding, 0); SameLine(); // left padding
+
+			TextV(fmt, args);
+
+			SameLine(); Spacing(padding, 0); // right padding
+			Spacing(0, padding);			 // bottom padding
+
+			EndTooltip();
+		}
+
+		va_end(args);
+	}
+
 	void CenterText(const char* text, bool disabled)
 	{
 		const auto text_width = CalcTextSize(text).x;

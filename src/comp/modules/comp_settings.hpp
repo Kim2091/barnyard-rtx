@@ -96,10 +96,6 @@ namespace comp
 			{
 				const auto pvec = !get_default ? &m_var.value[0] : &m_var_default.value[0];
 
-				const auto premix2d = !get_default ? &m_var.remix_float2d[0] : &m_var_default.remix_float2d[0];
-				const auto premix3d = !get_default ? &m_var.remix_float3d[0] : &m_var_default.remix_float3d[0];
-				const auto premix4d = !get_default ? &m_var.remix_float4d[0] : &m_var_default.remix_float4d[0];
-
 				switch (m_type)
 				{
 				case var_type_boolean:

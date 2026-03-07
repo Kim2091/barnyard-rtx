@@ -3,6 +3,7 @@
 namespace ImGui
 {
 	void Spacing(const float& x, const float& y);
+	void SetItemTooltipWrapper(const char* fmt, ...);
 
 	void CenterText(const char* text, bool disabled = false);
 	void AddUnterline(ImColor col);

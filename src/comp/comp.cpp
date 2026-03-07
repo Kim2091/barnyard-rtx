@@ -1,5 +1,6 @@
 #include "std_include.hpp"
 
+#include "modules/comp_settings.hpp"
 #include "modules/imgui.hpp"
 #include "modules/renderer.hpp"
 #include "shared/common/dinput_hook_v2.hpp"
@@ -104,12 +105,14 @@ namespace comp
 	}
 
 	// force render objects close to the camera
-	bool __stdcall cull_sphere_to_frustum_simple(const game::tsphere* a_rSphere, const game::tplane* a_pPlanes, int a_iNumPlanes)
+	bool __stdcall cull_sphere_to_frustum_simple(const game::tsphere* a_rSphere, const game::tplane* a_pPlanes, [[maybe_unused]] int a_iNumPlanes)
 	{
+		auto cs = comp_settings::get();
+
 		// force render if close to camera
 		const float dist_sq = (a_rSphere->m_Origin - g_current_camera_origin).LengthSqr();
+		const float r = cs->object_nucull_distance._float() + a_rSphere->m_fRadius; // might want to remove sphere radius
 
-		const float r = imgui::get()->m_debug_vector.x + a_rSphere->m_fRadius; // 15
 		if (dist_sq <= r * r) {
 			return true;
 		}
@@ -128,10 +131,12 @@ namespace comp
 
 	int render_tree_intersect_hk(const game::tsphere* a_rSphere)
 	{
+		auto cs = comp_settings::get();
+
 		// force render if close to camera
 		const float dist_sq = (a_rSphere->m_Origin - g_current_camera_origin).LengthSqr();
+		const float r = cs->world_nucull_distance._float();
 
-		const float r = imgui::get()->m_debug_vector.y /*+ a_rSphere->m_fRadius*/; // 50
 		if (dist_sq <= r * r) {
 			return 1;
 		}
