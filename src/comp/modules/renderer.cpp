@@ -21,12 +21,14 @@ namespace comp
 
 	bool g_is_worldhal_shader = false;
 	bool g_is_skinhal_shader = false;
+	bool g_is_grasshal_shader = false;
 	D3DXMATRIX* g_currWorldViewMtx = nullptr;
 
 	void reset_render_globals()
 	{
 		g_is_worldhal_shader = false;
 		g_is_skinhal_shader = false;
+		g_is_grasshal_shader = false;
 		g_currWorldViewMtx = nullptr;
 	}
 
@@ -182,6 +184,36 @@ namespace comp
 				world = *g_currWorldViewMtx * inv_view;
 
 				render_with_ff = true;
+			}*/
+
+
+			// Not worth it - causes a bunch of issues
+			/*if (g_is_grasshal_shader)
+			{
+				//if (im->m_dbg_debug_bool01)
+				{
+					if (g_currWorldViewMtx) // make sure that we have a valid world transform
+					{
+						ctx.save_world_transform(dev);
+						dev->SetTransform(D3DTS_WORLD, g_currWorldViewMtx);
+					}
+
+					//if (im->m_dbg_debug_bool02)
+					{
+						shared::utils::lookat_vertex_decl(dev);
+
+						ctx.save_fvf(dev);
+						DWORD new_fvf = D3DFVF_XYZ | D3DFVF_NORMAL | D3DFVF_TEX2 | D3DFVF_TEXCOORDSIZE3(0) | D3DFVF_TEXCOORDSIZE2(1);
+						dev->SetFVF(new_fvf);
+
+						// Use TC1 as UV's
+						ctx.save_tss(dev, D3DTSS_TEXCOORDINDEX);
+						dev->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, 1);
+					}
+
+					// Disable VS to render via FF
+					render_with_ff = true;
+				}
 			}*/
 
 			// Fallback handles all of that already so this doesn't make much sense .. still keeping it for now
@@ -390,6 +422,34 @@ namespace comp
 
 	// ---
 
+	void on_grassshaderhal_render_hk(render_packet* p)
+	{
+		if (p)
+		{
+			g_is_grasshal_shader = true;
+			g_currWorldViewMtx = &p->m_oModelView;
+		}
+	}
+
+	__declspec (naked) void on_grassshaderhal_render_stub()
+	{
+		static uint32_t retn_addr = 0x5F834F;
+		__asm
+		{
+			pushad;
+			push	ebp; // render packet
+			call	on_grassshaderhal_render_hk;
+			add		esp, 4;
+			popad;
+
+			mov     ebx, [ebp + 8]; // og
+			cmp     ebx, edi; // og
+			jmp		retn_addr;
+		}
+	}
+
+	// ---
+
 	renderer::renderer()
 	{
 		p_this = this;
@@ -400,11 +460,13 @@ namespace comp
 		shared::utils::hook::nop(0x5F6022, 6); // AWorldShaderHAL::SetHighEndMode :: prevent resetting
 		shared::utils::hook::nop(0x5F6CC0, 6); // AWorldShaderHAL::Render :: render in low end mode 
 
-
-		// Skinning
+		// SkinShaderHAL low end mode
 		shared::utils::hook(0x5F4839, on_skinshaderhal_render_stub, HOOK_JUMP).install()->quick(); // ASkinShaderHAL::Render
 		shared::utils::hook::set<BYTE>(0x5F473F + 6, 0x0); // ASkinShaderHAL::ASkinShaderHAL :: set low end mode by default
 		shared::utils::hook::nop(0x5F1802, 6); // ASkinShaderHAL::EnableHighEndSkinning :: prevent resetting
+
+		// GrassShaderHAL
+		shared::utils::hook(0x5F834A, on_grassshaderhal_render_stub, HOOK_JUMP).install()->quick(); // AGrassShaderHAL::Render
 
 		// -----
 		m_initialized = true;
