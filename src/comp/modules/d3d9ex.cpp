@@ -1,6 +1,8 @@
-﻿#include "std_include.hpp"
+#include "std_include.hpp"
 #include "d3d9ex.hpp"
 
+#include "comp/comp.hpp"
+#include "comp_settings.hpp"
 #include "imgui.hpp"
 #include "renderer.hpp"
 #include "shared/common/shader_cache.hpp"

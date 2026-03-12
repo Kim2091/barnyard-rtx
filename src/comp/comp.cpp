@@ -1,6 +1,7 @@
 #include "std_include.hpp"
 
 #include "modules/comp_settings.hpp"
+#include "modules/day_cycle.hpp"
 #include "modules/imgui.hpp"
 #include "modules/renderer.hpp"
 #include "shared/common/dinput_hook_v2.hpp"
@@ -12,10 +13,21 @@
 
 namespace comp
 {
+	void remix_begin_scene_cb()
+	{
+		if (auto* dc = day_cycle::get()) {
+			dc->draw_sun_light();
+		}
+	}
+
 	void on_begin_scene_cb()
 	{
 		if (!tex_addons::initialized) {
 			tex_addons::init_texture_addons();
+		}
+
+		if (day_cycle::is_initialized()) {
+			day_cycle::get()->update();
 		}
 
 		// fake camera
@@ -208,11 +220,10 @@ namespace comp
 
 	void main()
 	{
-		// #Step 2: init remix api if you want to use it or comment it otherwise
 		// Requires "exposeRemixApi = True" in the "bridge.conf" that is located in the .trex folder
-		shared::common::remix_api::initialize(nullptr, nullptr, nullptr, false);
+		shared::common::remix_api::initialize(remix_begin_scene_cb, nullptr, nullptr, false);
 
-		// init modules which do not need to be initialized, before the game inits, here
+		shared::common::loader::module_loader::register_module(std::make_unique<day_cycle>());
 		shared::common::loader::module_loader::register_module(std::make_unique<imgui>());
 		shared::common::loader::module_loader::register_module(std::make_unique<renderer>());
 

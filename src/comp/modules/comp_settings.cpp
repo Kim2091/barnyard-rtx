@@ -148,10 +148,18 @@ namespace comp
 					}																																\
 				}
 
-				// culling related settings
-				ASSIGN(object_nucull_distance);
-				ASSIGN(world_nucull_distance);
-				
+			// culling related settings
+			ASSIGN(object_nucull_distance);
+			ASSIGN(world_nucull_distance);
+
+			// day/night cycle settings
+			ASSIGN(day_cycle_enabled);
+			ASSIGN(day_cycle_sun_intensity);
+			ASSIGN(day_cycle_sun_angular_diameter);
+			ASSIGN(day_cycle_sun_color);
+			ASSIGN(day_cycle_time_offset);
+			ASSIGN(day_cycle_tilt);
+
 			#undef ASSIGN
 			}
 

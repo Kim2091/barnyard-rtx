@@ -21,4 +21,12 @@ namespace comp::game
 		Vector m_Normal;
 		float m_fDistance;
 	};
+
+	// Global pointer at 0x00783d3c: AGameTimeManager** g_ppGameTimeManager
+	struct AGameTimeManager
+	{
+		char  PADDING[0x34];
+		int32_t m_eDayPhase;  // 0x34
+		float m_flDayTime;    // 0x38  range [0, 1200)
+	};
 }

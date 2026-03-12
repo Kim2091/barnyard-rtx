@@ -380,6 +380,45 @@ namespace comp
 				50.0f
 			};
 
+			// ----------------------------------
+			// day/night cycle settings
+
+			variable day_cycle_enabled = {
+				"day_cycle_enabled",
+				("Enable the day/night cycle system: Remix API distant light + skybox sun/moon override"),
+				true
+			};
+
+			variable day_cycle_sun_intensity = {
+				"day_cycle_sun_intensity",
+				("Base radiance of the Remix distant sun light"),
+				2.0f
+			};
+
+			variable day_cycle_sun_angular_diameter = {
+				"day_cycle_sun_angular_diameter",
+				("Angular diameter of the sun disk in degrees (real sun ~ 0.53)"),
+				1.0f
+			};
+
+			variable day_cycle_sun_color = {
+				"day_cycle_sun_color",
+				("Base RGB color of the distant sun light (tinted warm near horizon automatically)"),
+				1.0f, 0.95f, 0.85f
+			};
+
+			variable day_cycle_time_offset = {
+				"day_cycle_time_offset",
+				("Phase offset in game time units [0..1200) to align the orbital dawn/noon/dusk with the visual sky"),
+				0.0f
+			};
+
+			variable day_cycle_tilt = {
+				"day_cycle_tilt",
+				("Orbital tilt angle in degrees (0 = sun orbits in XZ plane)"),
+				10.0f
+			};
+
 		};
 	
 		static inline var_definitions vars = {};
