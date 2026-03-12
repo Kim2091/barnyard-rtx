@@ -104,17 +104,42 @@ namespace comp
 		}
 	}
 
-	// force render objects close to the camera
+	// The game uses cull_sphere_to_frustum_simple for both rendering decisions and
+	// game logic (NPC repositioning, visibility queries). The NPC management system
+	// at 0x5286A0 teleports NPCs to their next quest position only when they are
+	// off-screen. Forcing visibility globally breaks quest progression.
+	//
+	// We use _ReturnAddress() to only apply the force-visible override for callers
+	// in the rendering pipeline, preserving original frustum results for game logic.
 	bool __stdcall cull_sphere_to_frustum_simple(const game::tsphere* a_rSphere, const game::tplane* a_pPlanes, [[maybe_unused]] int a_iNumPlanes)
 	{
-		auto cs = comp_settings::get();
+		const auto caller = reinterpret_cast<uintptr_t>(_ReturnAddress());
 
-		// force render if close to camera
-		const float dist_sq = (a_rSphere->m_Origin - g_current_camera_origin).LengthSqr();
-		const float r = cs->object_nucull_distance._float() + a_rSphere->m_fRadius; // might want to remove sphere radius
+		constexpr uintptr_t game_logic_callers[] = {
+			0x528895,  // NPC state/position management (quest progression)
+			0x561CFF,  // game visibility query
+			0x562F5F,  // game visibility query
+			0x60FACF,  // scene object state management
+		};
 
-		if (dist_sq <= r * r) {
-			return true;
+		bool is_game_logic = false;
+		for (auto addr : game_logic_callers) {
+			if (caller == addr) {
+				is_game_logic = true;
+				break;
+			}
+		}
+
+		if (!is_game_logic)
+		{
+			auto cs = comp_settings::get();
+
+			const float dist_sq = (a_rSphere->m_Origin - g_current_camera_origin).LengthSqr();
+			const float r = cs->object_nucull_distance._float() + a_rSphere->m_fRadius;
+
+			if (dist_sq <= r * r) {
+				return true;
+			}
 		}
 
 		for (auto i = 0u; i < 6u; i++)
@@ -200,7 +225,7 @@ namespace comp
 		// 
 		shared::utils::hook(0x6D54F1, render_tree_intersect_stub, HOOK_JUMP).install()->quick();
 
-		// force render objects close to the camera
+		// force render objects close to the camera (render callers only, game logic gets original results)
 		shared::utils::hook(0x6CEAD0, cull_sphere_to_frustum_simple, HOOK_JUMP).install()->quick();
 
 		MH_EnableHook(MH_ALL_HOOKS);
