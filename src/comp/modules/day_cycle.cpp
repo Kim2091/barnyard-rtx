@@ -45,80 +45,16 @@ namespace comp
 		m_sun_intensity = t * t * (3.0f - 2.0f * t);
 	}
 
-	void day_cycle::update_remix_light()
+	void day_cycle::ensure_light_converter_cleared()
 	{
 		auto& api = shared::common::remix_api::get();
-		if (!api.is_initialized()) {
-			return;
-		}
-
-		// Clear light converter once so the game's camera-space sun geometry
-		// does not create a parasitic light in Remix
-		if (!m_cleared_light_converter && api.m_bridge.SetConfigVariable)
+		if (!m_cleared_light_converter && api.is_initialized() && api.m_bridge.SetConfigVariable)
 		{
 			api.m_bridge.SetConfigVariable("rtx.lightConverter", "");
 			shared::common::log("DayCycle", "Cleared rtx.lightConverter",
 				shared::common::LOG_TYPE::LOG_TYPE_STATUS, true);
 			m_cleared_light_converter = true;
 		}
-
-		auto cs = comp_settings::get();
-		const float base_intensity = cs->day_cycle_sun_intensity._float() * m_sun_intensity;
-
-		if (base_intensity <= 0.001f)
-		{
-			if (m_sun_light_handle) {
-				api.m_bridge.DestroyLight(m_sun_light_handle);
-				m_sun_light_handle = nullptr;
-			}
-			return;
-		}
-
-		if (m_sun_light_handle) {
-			api.m_bridge.DestroyLight(m_sun_light_handle);
-			m_sun_light_handle = nullptr;
-		}
-
-		// Transform world-space sun direction into view/camera space.
-		// Remix reads the D3D9 view matrix which this game sets to identity,
-		// so it treats our direction as camera-relative. Compensate by
-		// rotating world_dir through the real camera's inverse rotation
-		// (transpose of the upper-left 3x3 of the camera world matrix).
-		const auto& cm = g_current_camera_mtx;
-		Vector dir;
-		dir.x = m_sun_direction.x * cm.m[0][0] + m_sun_direction.y * cm.m[0][1] + m_sun_direction.z * cm.m[0][2];
-		dir.y = m_sun_direction.x * cm.m[1][0] + m_sun_direction.y * cm.m[1][1] + m_sun_direction.z * cm.m[1][2];
-		dir.z = m_sun_direction.x * cm.m[2][0] + m_sun_direction.y * cm.m[2][1] + m_sun_direction.z * cm.m[2][2];
-		dir.NormalizeChecked();
-
-		const Vector base_color(
-			cs->day_cycle_sun_color._vec_x(),
-			cs->day_cycle_sun_color._vec_y(),
-			cs->day_cycle_sun_color._vec_z());
-
-		// Warm tint near horizon
-		const float warmth = 1.0f - std::clamp(m_sun_elevation, 0.0f, 1.0f);
-		const Vector tint(1.0f, 1.0f - warmth * 0.3f, 1.0f - warmth * 0.5f);
-		const Vector final_color = base_color * tint;
-
-		remixapi_LightInfoDistantEXT ext = {};
-		ext.sType = REMIXAPI_STRUCT_TYPE_LIGHT_INFO_DISTANT_EXT;
-		ext.pNext = nullptr;
-		ext.direction = dir.ToRemixFloat3D();
-		ext.angularDiameterDegrees = cs->day_cycle_sun_angular_diameter._float();
-		ext.volumetricRadianceScale = 1.0f;
-
-		remixapi_LightInfo info = {};
-		info.sType = REMIXAPI_STRUCT_TYPE_LIGHT_INFO;
-		info.pNext = &ext;
-		info.hash = shared::utils::string_hash64("sun_distant_light");
-		info.radiance = {
-			final_color.x * base_intensity,
-			final_color.y * base_intensity,
-			final_color.z * base_intensity
-		};
-
-		api.m_bridge.CreateLight(&info, &m_sun_light_handle);
 	}
 
 	// Write our computed sun/moon direction into the game's sky object so the
@@ -157,14 +93,73 @@ namespace comp
 		write_dir(reinterpret_cast<float*>(sky + 0x10), m_moon_direction);
 	}
 
+	// Called from the Remix begin-scene callback -- the latest point before
+	// Remix composites the frame.  We create and draw the light here so the
+	// camera-space transform uses the freshest camera matrix possible,
+	// eliminating jitter from frame-to-frame camera lag.
 	void day_cycle::draw_sun_light()
 	{
-		if (m_sun_light_handle) {
-			auto& api = shared::common::remix_api::get();
-			if (api.is_initialized()) {
-				api.m_bridge.DrawLightInstance(m_sun_light_handle);
-			}
+		auto& api = shared::common::remix_api::get();
+		if (!api.is_initialized()) {
+			return;
 		}
+
+		auto cs = comp_settings::get();
+		if (!cs->day_cycle_enabled._bool()) {
+			return;
+		}
+
+		const float base_intensity = cs->day_cycle_sun_intensity._float() * m_sun_intensity;
+
+		if (m_sun_light_handle) {
+			api.m_bridge.DestroyLight(m_sun_light_handle);
+			m_sun_light_handle = nullptr;
+		}
+
+		if (base_intensity <= 0.001f) {
+			return;
+		}
+
+		// Transform world-space sun direction into view/camera space.
+		// Remix reads the D3D9 view matrix which this game sets to identity,
+		// so it treats our direction as camera-relative.  Compensate by
+		// dotting with the camera's world-space axes (= multiply by the
+		// transpose of the upper-left 3x3 of the camera world matrix).
+		const auto& cm = g_current_camera_mtx;
+		Vector dir;
+		dir.x = m_sun_direction.x * cm.m[0][0] + m_sun_direction.y * cm.m[0][1] + m_sun_direction.z * cm.m[0][2];
+		dir.y = m_sun_direction.x * cm.m[1][0] + m_sun_direction.y * cm.m[1][1] + m_sun_direction.z * cm.m[1][2];
+		dir.z = m_sun_direction.x * cm.m[2][0] + m_sun_direction.y * cm.m[2][1] + m_sun_direction.z * cm.m[2][2];
+		dir.NormalizeChecked();
+
+		const Vector base_color(
+			cs->day_cycle_sun_color._vec_x(),
+			cs->day_cycle_sun_color._vec_y(),
+			cs->day_cycle_sun_color._vec_z());
+
+		const float warmth = 1.0f - std::clamp(m_sun_elevation, 0.0f, 1.0f);
+		const Vector tint(1.0f, 1.0f - warmth * 0.3f, 1.0f - warmth * 0.5f);
+		const Vector final_color = base_color * tint;
+
+		remixapi_LightInfoDistantEXT ext = {};
+		ext.sType = REMIXAPI_STRUCT_TYPE_LIGHT_INFO_DISTANT_EXT;
+		ext.pNext = nullptr;
+		ext.direction = dir.ToRemixFloat3D();
+		ext.angularDiameterDegrees = cs->day_cycle_sun_angular_diameter._float();
+		ext.volumetricRadianceScale = 1.0f;
+
+		remixapi_LightInfo info = {};
+		info.sType = REMIXAPI_STRUCT_TYPE_LIGHT_INFO;
+		info.pNext = &ext;
+		info.hash = shared::utils::string_hash64("sun_distant_light");
+		info.radiance = {
+			final_color.x * base_intensity,
+			final_color.y * base_intensity,
+			final_color.z * base_intensity
+		};
+
+		api.m_bridge.CreateLight(&info, &m_sun_light_handle);
+		api.m_bridge.DrawLightInstance(m_sun_light_handle);
 	}
 
 	void day_cycle::update()
@@ -181,7 +176,7 @@ namespace comp
 
 		m_day_time = day_time;
 		compute_celestial_directions(day_time);
-		update_remix_light();
+		ensure_light_converter_cleared();
 		override_sky_object();
 	}
 

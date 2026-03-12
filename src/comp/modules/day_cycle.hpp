@@ -34,7 +34,7 @@ namespace comp
 
 		float read_day_time();
 		void compute_celestial_directions(float day_time);
-		void update_remix_light();
+		void ensure_light_converter_cleared();
 		void override_sky_object();
 
 		bool m_initialized = false;
